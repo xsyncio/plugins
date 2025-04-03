@@ -1,6 +1,7 @@
-# OSINTBuddy plugins and extensions
+# 🚧 Plugins - WORK IN PROGRESS! 🚧 
 
-The plugins library for [osintbuddy/osintbuddy](https://github.com/osintbuddy/osintbuddy).
+
+The plugins library for [osintbuddy/osintbuddy](https://github.com/osintbuddy/osintbuddy). Currently in alpha, **expect breaking changes**...
 
 ## Install
 
@@ -9,9 +10,12 @@ pip install -e .
 ob start
 ```
 
-## Plugin Example
+The osintbuddy plugin system at its core is very simple. A `Registry` class holds all registered `Plugin` classes within the application. This registry is loaded into the osintbuddy plugins service (*this repo*) where it is then used by the [osintbuddy application](https://github.com/osintbuddy/osintbuddy/) to load the available entities for the user when they access a project graph, load transforms when a user opens the context menu of a node, and perform transformations which expect a `Plugin.blueprint()` to be returned. The returned data of a transform decorated method will be automatically mapped to a [PostgreSQL](https://www.postgresql.org) database with [apache/age](https://age.apache.org/) according to the labels *(as snakecase)* you previously set in the classes `node` for whatever `Plugin.blueprint()`
+you return.
+
 
 To make this a bit more clear please see the below example...
+
 
 ```py
 from pydantic import BaseModel
@@ -23,7 +27,7 @@ from osintbuddy.errors import OBPluginError
 class CSESearchResults(Plugin):
     label = "CSE Result"
     name = "CSE result"
-    show_label = False  # do not show this on the entities dialog 
+    show_label = False  # do not show this on the entities dialog Q
     # the user sees on the left of the project graph screen
     color = "#058F63"
     node = [
@@ -90,4 +94,14 @@ class CSESearchPlugin(Plugin):
 
 ```
 
+---
 
+TODO: 
+
+- document cli
+- add git plugins loader to cli
+- handle multiple selenium drivers being used 
+- create a playwright plugin example
+
+- `ob start`
+- `ob init`
