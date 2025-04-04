@@ -1,15 +1,12 @@
 #!/usr/bin/env python
-"""OSINTBuddy plugins server script
+"""OSINTBuddy plugins CLI
 
 This script contains the commands needed to manage an OSINTBuddy Plugins service, which is used by the OSINTBuddy project.
 
 Basic Commands:
     Plugins service command(s):
-        `start` : Starts the FastAPI microservice (`ctrl+c` to stop the microservice)
-        `lsp` : Start the language server for code completion in the OSINTBuddy app
-    Database Command(s):
-        `plugin create` : Run the setup wizard for creating new plugin(s)
-        `load $GIT_URL` : Load plugin(s) from a remote git repository
+        `ob start` : Starts the FastAPI microservice (`ctrl+c` to stop the microservice)
+        `ob init` : Load the initial osintbuddy entities onto your filesystem
 """
 import os, logging
 from pathlib import Path
@@ -21,14 +18,6 @@ from pyfiglet import figlet_format
 from termcolor import colored
 import osintbuddy
 
-def get_logger():
-    log = logging.getLogger("[service] plugins")
-    log.setLevel(logging.DEBUG)
-    formatter = logging.Formatter('%(asctime)s [%(name)s] %(levelname)s - %(message)s')
-    log.setFormatter(formatter)
-    return log
-
-log = get_logger()
 
 APP_INFO = \
 """___________________________________________________________________
@@ -40,31 +29,6 @@ APP_INFO = \
 | PID: {pid}
 | Endpoint: 127.0.0.1:42562 
 """.rstrip()
-
-
-def _print_server_details():
-    log.info(colored(figlet_format(f"OSINTBuddy plugins", font='smslant'), color="blue"))
-    log.info(colored(APP_INFO.format(
-        osintbuddy_version=osintbuddy.__version__,
-        pid=getpid(),
-    ), color="blue"))
-    colored("Created by", color="blue"), colored("jerlendds & friends", color="red")
-
-
-def start():
-    _print_server_details()
-    import uvicorn
-    uvicorn.run(
-        "osintbuddy.server:app",
-        host="0.0.0.0",
-        loop='asyncio',
-        reload=True,
-        workers=4,
-        port=42562,
-        headers=[('server', f"OSINTBuddy")],
-        log_level='debug'
-    )
-
 
 ENTITIES = [
     "cse_result.py",
@@ -84,6 +48,40 @@ ENTITIES = [
     "whois.py",
 ]
 
+def get_logger():
+    log = logging.getLogger("plugins")
+    log.setLevel(logging.DEBUG)
+    formatter = logging.Formatter('%(asctime)s %(name)s [%(levelname)s] %(message)s')
+    ch = logging.StreamHandler()
+    ch.setFormatter(formatter)
+    log.addHandler(ch)
+    return log
+
+log = get_logger()
+
+def _print_server_details():
+    print(colored(figlet_format(f"OSINTBuddy plugins", font='smslant'), color="blue"))
+    print(colored(APP_INFO.format(
+        osintbuddy_version=osintbuddy.__version__,
+        pid=getpid(),
+    ), color="blue"))
+    print(colored("Created by", color="blue"), colored("jerlendds and friends", color="red"))
+
+
+def start():
+    _print_server_details()
+    import uvicorn
+    uvicorn.run(
+        "osintbuddy.server:app",
+        host="0.0.0.0",
+        loop='asyncio',
+        reload=True,
+        workers=4,
+        port=42562,
+        headers=[('server', f"OSINTBuddy")],
+        log_level='debug'
+    )
+
 def load_git_entities():
     if not Path("./plugins").is_dir():
         log.info("directory does not exist, creating ./plugins")
@@ -102,10 +100,10 @@ def load_git_entities():
 
 
 def init_entities():
-    log.info("____________________________________________________________________")
+    print("____________________________________________________________________")
     log.info("| Loading osintbuddy entities...")
     load_git_entities()
-    log.info("____________________________________________________________________")
+    print("____________________________________________________________________")
     log.info("Initial entities loaded!")
 
 

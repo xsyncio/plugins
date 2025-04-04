@@ -115,10 +115,8 @@ def load_plugins():
     :return:
     """
     entities = os.listdir("./plugins")
-    print("loading ent", entities)
     for entity in entities:
         if entity.endswith(".py"):
-            print(entity)
             mod_name = entity.replace(".py", "")
             spec = importlib.util.spec_from_file_location(mod_name, f"plugins/{entity}")
             module = importlib.util.module_from_spec(spec)
