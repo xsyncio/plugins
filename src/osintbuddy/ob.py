@@ -11,7 +11,7 @@ Basic Commands:
         `plugin create` : Run the setup wizard for creating new plugin(s)
         `load $GIT_URL` : Load plugin(s) from a remote git repository
 """
-import os
+import os, logging
 from pathlib import Path
 import requests
 from os import getpid, devnull
@@ -21,8 +21,14 @@ from pyfiglet import figlet_format
 from termcolor import colored
 import osintbuddy
 
-# | Find, share, and get help with OSINTBuddy plugins:
-# | https://forum.osintbuddy.com/c/plugin-devs/5
+def get_logger():
+    log = logging.getLogger("[service] plugins")
+    log.setLevel(logging.DEBUG)
+    formatter = logging.Formatter('%(asctime)s [%(name)s] %(levelname)s - %(message)s')
+    log.setFormatter(formatter)
+    return log
+
+log = get_logger()
 
 APP_INFO = \
 """___________________________________________________________________
@@ -37,8 +43,8 @@ APP_INFO = \
 
 
 def _print_server_details():
-    print(colored(figlet_format(f"OSINTBuddy plugins", font='smslant'), color="blue"))
-    print(colored(APP_INFO.format(
+    log.info(colored(figlet_format(f"OSINTBuddy plugins", font='smslant'), color="blue"))
+    log.info(colored(APP_INFO.format(
         osintbuddy_version=osintbuddy.__version__,
         pid=getpid(),
     ), color="blue"))
@@ -60,14 +66,6 @@ def start():
     )
 
 
-def create_plugin_wizard():
-    # TODO: setup prompt process for initializing an osintbuddy plugin(s) project
-    pass
-
-
-
-entity_url = lambda entity: f"https://raw.githubusercontent.com/jerlendds/osintbuddy-core-plugins/refs/heads/main/plugins/{entity}"
-
 ENTITIES = [
     "cse_result.py",
     "cse_search.py",
@@ -88,31 +86,33 @@ ENTITIES = [
 
 def load_git_entities():
     if not Path("./plugins").is_dir():
+        log.info("directory does not exist, creating ./plugins")
         os.mkdir("./plugins")
 
     with httpx.Client() as client:
-        for e in ENTITIES:
-            if Path(f"./plugins/{e}").exists():
+        for entity in ENTITIES:
+            log.info(f"loading osintbuddy entity: {entity}")
+            if Path(f"./plugins/{entity}").exists():
                 continue
             else:
-                data = client.get(f"{entity_url(e)}")
-                with open(f"./plugins/{e}", "w") as file:
+                data = client.get(f"https://raw.githubusercontent.com/jerlendds/osintbuddy-core-plugins/refs/heads/main/plugins/{entity}")
+                with open(f"./plugins/{entity}", "w") as file:
                     file.write(data.text)
                     file.close()
 
 
-def load_core():
-    print("____________________________________________________________________")
-    print("| Loading core entities...")
+def init_entities():
+    log.info("____________________________________________________________________")
+    log.info("| Loading osintbuddy entities...")
     load_git_entities()
-    print("____________________________________________________________________")
-    print("Done!")
+    log.info("____________________________________________________________________")
+    log.info("Initial entities loaded!")
 
 
 commands = {
     "start": start,
     # "plugin create": create_plugin_wizard,
-    "init": load_core
+    "init": init_entities
 }
 
 def main():
@@ -130,4 +130,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-

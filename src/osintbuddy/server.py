@@ -6,6 +6,8 @@ from osintbuddy import __version__
 from osintbuddy.plugins import load_plugins
 from osintbuddy.utils import to_snake_case
 from osintbuddy import Registry
+from osintbuddy.ob import log
+
 
 load_plugins()
 app = FastAPI(title=f"OSINTBuddy Plugins v{__version__}")
@@ -57,6 +59,9 @@ async def get_entity_source(hid: str):
 
 @app.get("/refresh")
 async def reload_entities():
+    Registry.labels = []
+    Registry.plugins = []
+    Registry.ui_labels = []
     load_plugins()
     return Registry.ui_labels
 
@@ -64,12 +69,13 @@ async def reload_entities():
 @app.get("/blueprint")
 async def get_entity_blueprint(label: str):
     plugin = await Registry.get_plugin(label)
-    return plugin.blueprint() if plugin else None
+    return plugin.blueprint() if plugin else []
 
 
-@app.get("/entities/{label}")
-async def get_entity_transforms(label):
-    plugin = await Registry.get_plugin(label)
-    if plugin := plugin():
-        return plugin.transform_labels
-    return []
+@app.get("/transforms")
+def get_entity_transforms(label: str):
+    plugin = Registry[label]
+    if plugin == None:
+        return []
+    entity = plugin()
+    return entity.transform_labels
