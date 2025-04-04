@@ -10,9 +10,8 @@ Basic Commands:
 """
 import os, logging
 from pathlib import Path
-import requests
-from os import getpid, devnull
-from argparse import ArgumentParser, BooleanOptionalAction
+from os import getpid
+from argparse import ArgumentParser
 import httpx
 from pyfiglet import figlet_format
 from termcolor import colored
