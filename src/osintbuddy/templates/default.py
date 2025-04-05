@@ -20,6 +20,5 @@ class {class_name}(ob.Plugin):
     async def transform_example(self, node, use):
         WebsitePlugin = await ob.Registry.get_plugin('website')
         website_plugin = WebsitePlugin()
-        return website_plugin.blueprint(domain=node.example)
+        return website_plugin.create(domain=node.example)
 """
-

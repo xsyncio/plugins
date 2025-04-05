@@ -45,6 +45,7 @@ ENTITIES = [
     "username.py",
     "username_profile.py",
     "whois.py",
+    "website.py"
 ]
 
 def get_logger():
@@ -78,7 +79,7 @@ def start():
         workers=4,
         port=42562,
         headers=[('server', f"OSINTBuddy")],
-        log_level='debug'
+        log_level='info'
     )
 
 def load_git_entities():

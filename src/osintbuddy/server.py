@@ -1,13 +1,10 @@
-import sys, os, importlib, inspect
+import sys, os
 from datetime import datetime
 from fastapi import FastAPI
 from pydantic import BaseModel
-from osintbuddy import __version__
+from osintbuddy import __version__, Use, Registry
 from osintbuddy.plugins import load_plugins
-from osintbuddy.utils import to_snake_case
-from osintbuddy import Registry
-from osintbuddy.ob import log
-
+from osintbuddy.utils.deps import get_driver
 
 load_plugins()
 app = FastAPI(title=f"OSINTBuddy Plugins v{__version__}")
@@ -69,13 +66,25 @@ async def reload_entities():
 @app.get("/blueprint")
 async def get_entity_blueprint(label: str):
     plugin = await Registry.get_plugin(label)
-    return plugin.blueprint() if plugin else []
+    return plugin.create() if plugin else []
 
 
 @app.get("/transforms")
-def get_entity_transforms(label: str):
-    plugin = Registry[label]
-    if plugin == None:
-        return []
-    entity = plugin()
-    return entity.transform_labels
+async def get_entity_transforms(label: str):
+    plugin = await Registry.get_plugin(label)
+    if plugin := plugin():
+        return plugin.transform_labels
+    return []
+
+
+@app.post("/transforms")
+async def run_entity_transform(context: dict):
+    plugin = await Registry.get_plugin(context['data'].get("label"))
+    if entity := plugin():
+        transform_result = await entity.run_transform(
+            transform_type=context.get("transform"),
+            entity=context,
+            use=Use(get_driver=get_driver)
+        )
+        return transform_result
+    return []

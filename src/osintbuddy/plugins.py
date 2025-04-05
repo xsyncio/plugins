@@ -29,7 +29,7 @@ def plugin_results_middleman(f):
     return decorator
 
 
-class OBAuthorUse(BaseModel):
+class OBUse(BaseModel):
     get_driver: Callable[[], None]
 
 
@@ -203,7 +203,7 @@ class OBPlugin(object, metaclass=OBRegistry):
         ]
 
     def __call__(self):
-        return self.blueprint()
+        return self.create()
 
     @staticmethod
     def _map_graph_data_labels(element, **kwargs):
@@ -218,7 +218,7 @@ class OBPlugin(object, metaclass=OBRegistry):
         return element
 
     @classmethod
-    def blueprint(cls, **kwargs):
+    def create(cls, **kwargs):
         """
         Generate and return a dictionary representing the plugins node.
         Includes label, name, color, icon, and a list of all elements
@@ -260,7 +260,7 @@ class OBPlugin(object, metaclass=OBRegistry):
             return entity_ui_node
 
 
-    async def get_transform(self, transform_type: str, entity, use: OBAuthorUse) -> Any:
+    async def run_transform(self, transform_type: str, entity, use: OBUse) -> Any:
         """ Return output from a function accepting node data.
             The function will be called with a single argument, the node data
             from when a node context menu action is taken - and should return

@@ -6,7 +6,7 @@ from __future__ import annotations
 from osintbuddy.plugins import (
     OBRegistry as Registry,
     OBPlugin as Plugin,
-    OBAuthorUse as PluginUse,
+    OBUse as Use,
     discover_plugins,
     transform,
     load_plugin,
