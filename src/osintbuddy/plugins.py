@@ -45,13 +45,13 @@ class OBRegistry(type):
         """
         if name != 'OBPlugin' and name != 'Plugin' and issubclass(cls, OBPlugin):
             label = cls.label.strip()
-            if cls.show_label is True:
+            if cls.is_available is True:
                 if isinstance(cls.author, list):
                     cls.author = ', '.join(cls.author)
                 OBRegistry.ui_labels.append({
                     'label': label,
-                    'description': cls.description,
-                    'author': cls.author
+                    'description': cls.description if cls.description != None else "Description not available.",
+                    'author': cls.author if cls.author != None else "Author not provided.",
                 })
             OBRegistry.labels.append(label)
             OBRegistry.plugins.append(cls)
@@ -109,10 +109,9 @@ def load_plugin(
 
 def load_plugins():
     """
-    Loads plugins from the filesystem
+    Loads plugins from the filesystem "plugins/*.py" directory
 
-    :param entities: list of entities from the filesystem
-    :return:
+    :return: list of plugins sourced from the filesystem
     """
     entities = os.listdir("./plugins")
     for entity in entities:
@@ -122,31 +121,6 @@ def load_plugins():
             module = importlib.util.module_from_spec(spec)
             sys.modules[mod_name] = module
             spec.loader.exec_module(module)
-    return OBRegistry.plugins
-
-def discover_plugins(
-    dir_path: str = './plugins/',
-):
-    """
-    Scans the specified 'dir_path' for '.py' files, imports them as plugins,
-    and populates the OBRegistry with classes.
-
-    :param dir_path: The directory path where the plugins are located.
-    :return: List of plugin classes
-    """
-    for r, _, files in os.walk(dir_path):
-        for filename in files:
-            modname, ext = os.path.splitext(filename)
-            if ext == '.py':
-                try:
-                    modpath = r.replace("/app/", "")
-                    if './plugins' in dir_path:
-                        modpath = r.replace("/plugins.osintbuddy.com/src/", "")
-                    modpath = modpath.replace("/", ".")
-                    importlib.import_module(f'{modpath}{modname}')
-                except ImportError as e:
-                    print(f"Error importing plugin '{modpath}{modname}': {e}")
-
     return OBRegistry.plugins
 
 
@@ -184,10 +158,10 @@ class OBPlugin(object, metaclass=OBRegistry):
     color: str = '#145070'
     label: str = ''
     icon: str = 'atom-2'
-    show_label = True
+    is_available = True
 
-    author = 'Unknown'
-    description = 'No description.'
+    author = ''
+    description = ''
 
     def __init__(self):
         transforms = self.__class__.__dict__.values()
@@ -197,9 +171,9 @@ class OBPlugin(object, metaclass=OBRegistry):
         self.transform_labels = [
             {
                 'label': func.label,
-                'icon': func.icon,
+                'icon': func.icon if hasattr(func, 'icon') else 'atom-2',
             } for func in transforms
-            if hasattr(func, 'icon') and hasattr(func, 'label')
+            if hasattr(func, 'label')
         ]
 
     def __call__(self):
@@ -220,9 +194,9 @@ class OBPlugin(object, metaclass=OBRegistry):
     @classmethod
     def create(cls, **kwargs):
         """
-        Generate and return a dictionary representing the plugins node.
+        Generate and return a dictionary representing the plugins ui entity.
         Includes label, name, color, icon, and a list of all elements
-        for the node/plugin.
+        for the entity/plugin.
         """
         entity_ui_node = defaultdict(None)
         entity_ui_node['label'] = cls.label
@@ -238,22 +212,7 @@ class OBPlugin(object, metaclass=OBRegistry):
                         cls._map_graph_data_labels(elm.to_dict(), **kwargs)
                         for elm in element
                     ])
-                # otherwise position the entity elements vertically on the actual UI entity node
-                else:
-                    element_row = cls._map_graph_data_labels(element.to_dict(), **kwargs)
-                    entity_ui_node['elements'].append(element_row)
-            return entity_ui_node
-        if cls.node:
-            print("WARNING! Using node in plugins is being deprecated! Please switch to entity = [TextInput(...), ...] ")
-            for element in cls.node:
-                # if an entity element is a nested list, 
-                # elements will be positioned next to each other horizontally
-                if isinstance(element, list):
-                    row_elms = []
-                    for elm in element:
-                        row_elms.append(cls._map_graph_data_labels(elm.to_dict(), **kwargs))
-                    entity_ui_node['elements'].append(row_elms)
-                # otherwise position the entity elements vertically on the actual UI entity node
+                # otherwise position the entity elements vertically on the actual UI entity
                 else:
                     element_row = cls._map_graph_data_labels(element.to_dict(), **kwargs)
                     entity_ui_node['elements'].append(element_row)

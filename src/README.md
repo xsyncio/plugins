@@ -27,7 +27,7 @@ from osintbuddy.errors import OBPluginError
 class CSESearchResults(Plugin):
     label = "CSE Result"
     name = "CSE result"
-    show_label = False  # do not show this on the entities dialog Q
+    is_available = False  # do not show this on the entities dialog Q
     # the user sees on the left of the project graph screen
     color = "#058F63"
     node = [

@@ -76,7 +76,7 @@ def start():
         host="0.0.0.0",
         loop='asyncio',
         reload=True,
-        workers=4,
+        workers=6,
         port=42562,
         headers=[('server', f"OSINTBuddy")],
         log_level='info'

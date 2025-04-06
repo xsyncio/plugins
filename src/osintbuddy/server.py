@@ -4,6 +4,7 @@ from fastapi import FastAPI
 from pydantic import BaseModel
 from osintbuddy import __version__, Use, Registry
 from osintbuddy.plugins import load_plugins
+from osintbuddy.utils import to_snake_case
 from osintbuddy.utils.deps import get_driver
 
 load_plugins()
@@ -27,7 +28,7 @@ async def get_entities():
         file_entity = EntityCreate(
                 label=plugin.label,
                 author=plugin.author,
-                description=plugin.description,
+                description=plugin.description or '',
                 last_edit=datetime.utcfromtimestamp(os.path.getmtime(file)).strftime('%Y-%m-%d %H:%M:%S'),
                 id=idx,
                 source=""
@@ -55,11 +56,13 @@ async def get_entity_source(hid: str):
 
 
 @app.get("/refresh")
-async def reload_entities():
+async def reload_entities(labels: bool = False):
     Registry.labels = []
     Registry.plugins = []
     Registry.ui_labels = []
     load_plugins()
+    if labels:
+        return [to_snake_case(label) for label in Registry.labels]
     return Registry.ui_labels
 
 
