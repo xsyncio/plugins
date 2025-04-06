@@ -109,7 +109,7 @@ def load_plugin(
 
 def load_plugins():
     """
-    Loads plugins from the filesystem "plugins/*.py" directory
+    Loads plugins from the filesystem ./plugins/*.py directory
 
     :return: list of plugins sourced from the filesystem
     """
@@ -197,25 +197,27 @@ class OBPlugin(object, metaclass=OBRegistry):
         Includes label, name, color, icon, and a list of all elements
         for the entity/plugin.
         """
-        entity_ui_node = defaultdict(None)
-        entity_ui_node['label'] = cls.label
-        entity_ui_node['color'] = cls.color if cls.color else '#145070'
-        entity_ui_node['icon'] = cls.icon
-        entity_ui_node['elements'] = []
+        ui_entity = defaultdict(None)
+        ui_entity['data'] = {
+            'label': cls.label,
+            'color': cls.color if cls.color else '#145070',
+            'icon': cls.icon,
+            'elements': []
+        }
         if cls.entity:
             for element in cls.entity:
                 # if an entity element is a nested list, 
                 # elements will be positioned next to each other horizontally
                 if isinstance(element, list):
-                    entity_ui_node['elements'].append([
+                    ui_entity['data']['elements'].append([
                         cls._map_graph_data_labels(elm.to_dict(), **kwargs)
                         for elm in element
                     ])
                 # otherwise position the entity elements vertically on the actual UI entity
                 else:
                     element_row = cls._map_graph_data_labels(element.to_dict(), **kwargs)
-                    entity_ui_node['elements'].append(element_row)
-            return entity_ui_node
+                    ui_entity['data']['elements'].append(element_row)
+            return ui_entity
 
 
     async def run_transform(self, transform_type: str, entity, use: OBUse) -> Any:
