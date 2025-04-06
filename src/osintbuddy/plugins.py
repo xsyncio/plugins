@@ -1,4 +1,4 @@
-import os, importlib, inspect, sys
+import os, importlib, inspect, sys, glob
 import importlib.util
 from typing import List, Any, Callable
 from collections import defaultdict
@@ -113,14 +113,13 @@ def load_plugins():
 
     :return: list of plugins sourced from the filesystem
     """
-    entities = os.listdir("./plugins")
+    entities = glob.glob('plugins/*.py')
     for entity in entities:
-        if entity.endswith(".py"):
-            mod_name = entity.replace(".py", "")
-            spec = importlib.util.spec_from_file_location(mod_name, f"plugins/{entity}")
-            module = importlib.util.module_from_spec(spec)
-            sys.modules[mod_name] = module
-            spec.loader.exec_module(module)
+        mod_name = entity.replace('.py', '').replace('plugins/', '')
+        spec = importlib.util.spec_from_file_location(mod_name, f"{entity}")
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[mod_name] = module
+        spec.loader.exec_module(module)
     return OBRegistry.plugins
 
 

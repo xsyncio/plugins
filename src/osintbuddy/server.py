@@ -57,9 +57,9 @@ async def get_entity_source(hid: str):
 
 @app.get("/refresh")
 async def reload_entities(labels: bool = False):
-    Registry.labels = []
-    Registry.plugins = []
-    Registry.ui_labels = []
+    Registry.labels.clear()
+    Registry.plugins.clear()
+    Registry.ui_labels.clear()
     load_plugins()
     if labels:
         return [to_snake_case(label) for label in Registry.labels]
