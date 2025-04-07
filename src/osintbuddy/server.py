@@ -56,13 +56,15 @@ async def get_entity_source(hid: str):
 
 
 @app.get("/refresh")
-async def reload_entities(labels: bool = False):
+async def reload_entities(blueprints: bool = False):
     Registry.labels.clear()
     Registry.plugins.clear()
     Registry.ui_labels.clear()
     load_plugins()
-    if labels:
-        return [to_snake_case(label) for label in Registry.labels]
+    if blueprints:
+        plugins = [await Registry.get_plugin(to_snake_case(label)) 
+                   for label in Registry.labels]
+        return [p.create() for p in plugins]
     return Registry.ui_labels
 
 
