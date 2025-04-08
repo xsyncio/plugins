@@ -12,7 +12,7 @@ class {class_name}(ob.Plugin):
     author = '{author}'
     description = '{description}'
 
-    node = [
+    entity = [
         TextInput(label='Example', icon='radioactive')
     ]
 

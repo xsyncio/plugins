@@ -10,7 +10,6 @@ from osintbuddy.plugins import (
     transform,
     load_plugin,
     load_plugins,
-    
 )
 
 __version__ = "0.0.1"
