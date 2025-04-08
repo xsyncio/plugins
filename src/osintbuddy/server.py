@@ -61,15 +61,15 @@ async def reload_entities(blueprints: bool = False):
     Registry.plugins.clear()
     Registry.ui_labels.clear()
     load_plugins()
-    if blueprints:
-        plugins = [await Registry.get_plugin(to_snake_case(label)) 
-                   for label in Registry.labels]
-        return [p.create() for p in plugins]
     return Registry.ui_labels
 
 
 @app.get("/blueprint")
 async def get_entity_blueprint(label: str):
+    if label == '_osib_all':
+        plugins = [await Registry.get_plugin(to_snake_case(label)) 
+                   for label in Registry.labels]
+        return [p.create() for p in plugins]
     plugin = await Registry.get_plugin(label)
     return plugin.create() if plugin else []
 
