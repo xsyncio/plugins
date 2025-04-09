@@ -93,7 +93,7 @@ def load_git_entities():
             if Path(f"./plugins/{entity}").exists():
                 continue
             else:
-                data = client.get(f"https://raw.githubusercontent.com/jerlendds/osintbuddy-core-plugins/refs/heads/main/plugins/{entity}")
+                data = client.get(f"https://raw.githubusercontent.com/osintbuddy/entities/refs/heads/main/{entity}")
                 with open(f"./plugins/{entity}", "w") as file:
                     file.write(data.text)
                     file.close()
