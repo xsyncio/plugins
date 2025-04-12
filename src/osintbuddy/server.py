@@ -1,4 +1,5 @@
 import sys, os
+from types import NoneType
 from datetime import datetime
 from fastapi import FastAPI
 from pydantic import BaseModel
@@ -28,13 +29,13 @@ async def get_entities():
         file_entity = EntityCreate(
                 label=plugin.label,
                 author=plugin.author,
-                description=plugin.description or '',
+                description=plugin.description,
                 last_edit=datetime.utcfromtimestamp(os.path.getmtime(file)).strftime('%Y-%m-%d %H:%M:%S'),
                 id=idx,
                 source=open(sys.modules[plugin.__module__].__file__, "r").read()
         )
         entities.append(file_entity)
-    return {"entities": entities}
+    return entities
 
 
 @app.get("/entities/{hid}")
@@ -77,16 +78,16 @@ async def get_entity_blueprint(label: str):
 @app.get("/transforms")
 async def get_entity_transforms(label: str):
     plugin = await Registry.get_plugin(label)
-    if plugin := plugin():
-        return plugin.transform_labels
+    if not isinstance(plugin, NoneType):
+        return plugin().transform_labels
     return []
 
 
 @app.post("/transforms")
 async def run_entity_transform(context: dict):
     plugin = await Registry.get_plugin(context['data'].get("label"))
-    if entity := plugin():
-        transform_result = await entity.run_transform(
+    if not isinstance(plugin, NoneType):
+        transform_result = await plugin().run_transform(
             transform_type=context.get("transform"),
             entity=context,
             use=Use(get_driver=get_driver)
