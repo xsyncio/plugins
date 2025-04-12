@@ -31,7 +31,7 @@ async def get_entities():
                 description=plugin.description or '',
                 last_edit=datetime.utcfromtimestamp(os.path.getmtime(file)).strftime('%Y-%m-%d %H:%M:%S'),
                 id=idx,
-                source=""
+                source=open(sys.modules[plugin.__module__].__file__, "r").read()
         )
         entities.append(file_entity)
     return {"entities": entities}

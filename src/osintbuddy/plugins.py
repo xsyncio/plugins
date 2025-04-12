@@ -179,7 +179,7 @@ class OBPlugin(object, metaclass=OBRegistry):
         return self.create()
 
     @staticmethod
-    def _map_graph_data_labels(element, **kwargs):
+    def _map_entity_labels(element, **kwargs):
         label = to_snake_case(element['label'])
         for element_key in kwargs.keys():
             if element_key == label:
@@ -210,12 +210,12 @@ class OBPlugin(object, metaclass=OBRegistry):
                 # elements will be positioned next to each other horizontally
                 if isinstance(element, list):
                     ui_entity['data']['elements'].append([
-                        cls._map_graph_data_labels(elm.to_dict(), **kwargs)
+                        cls._map_entity_labels(elm.to_dict(), **kwargs)
                         for elm in element
                     ])
                 # otherwise position the entity elements vertically on the actual UI entity
                 else:
-                    element_row = cls._map_graph_data_labels(element.to_dict(), **kwargs)
+                    element_row = cls._map_entity_labels(element.to_dict(), **kwargs)
                     ui_entity['data']['elements'].append(element_row)
             return ui_entity
 

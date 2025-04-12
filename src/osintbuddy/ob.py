@@ -78,13 +78,13 @@ def start():
         reload=True,
         workers=6,
         port=42562,
-        headers=[('server', f"OSINTBuddy")],
+        headers=[('server', 'OSINTBuddy')],
         log_level='info'
     )
 
 def load_git_entities():
     if not Path("./plugins").is_dir():
-        log.info("directory does not exist, creating ./plugins")
+        log.info("directory not found, creating ./plugins")
         os.mkdir("./plugins")
 
     with httpx.Client() as client:
