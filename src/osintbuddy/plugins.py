@@ -3,7 +3,6 @@ import importlib.util
 from typing import List, Any, Callable
 from collections import defaultdict
 from pydantic import BaseModel, ConfigDict
-from osintbuddy.ob import ENTITIES
 from osintbuddy.elements.base import BaseElement
 from osintbuddy.errors import OBPluginError
 from osintbuddy.utils import to_snake_case

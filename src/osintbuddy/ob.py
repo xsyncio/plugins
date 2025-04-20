@@ -8,15 +8,16 @@ Basic Commands:
         `ob start` : Starts the FastAPI microservice (`ctrl+c` to stop the microservice)
         `ob init` : Load the initial osintbuddy entities onto your filesystem
 """
-import os, logging
+import os, logging, asyncio, json, sys
+from types import NoneType
 from pathlib import Path
 from os import getpid
 from argparse import ArgumentParser
 import httpx
 from pyfiglet import figlet_format
 from termcolor import colored
-import osintbuddy
-
+from osintbuddy import Registry, __version__, Use, load_plugins
+from osintbuddy.utils.deps import get_driver
 
 APP_INFO = \
 """___________________________________________________________________
@@ -62,7 +63,7 @@ log = get_logger()
 def _print_server_details():
     print(colored(figlet_format(f"OSINTBuddy plugins", font='smslant'), color="blue"))
     print(colored(APP_INFO.format(
-        osintbuddy_version=osintbuddy.__version__,
+        osintbuddy_version=__version__,
         pid=getpid(),
     ), color="blue"))
     print(colored("Created by", color="blue"), colored("jerlendds and friends", color="red"))
@@ -107,21 +108,61 @@ def init_entities():
     log.info("Initial entities loaded!")
 
 
+
+source = {"id":"1125899906842654","data":{"label":"Website","color":"#1D1DB8","icon":"world-www","elements":[{"value":"github.com","icon":"world-www","label":"Domain","type":"text"}]},"position":{"x":5275.072364647034,"y":3488.8488109543805},"transform":"To IP"}
+
+def prepare_run():
+    Registry.labels.clear()
+    Registry.plugins.clear()
+    Registry.ui_labels.clear()
+    load_plugins()
+
+
+async def run_transform(source: str):
+    '''
+    E.g.
+    ob run '{"id":"1125899906842654","data":{"label":"Website","color":"#1D1DB8","icon":"world-www","elements":[{"value":"github.com","icon":"world-www","label":"Domain","type":"text"}]},"position":{"x":5275.072364647034,"y":3488.8488109543805},"transform":"To IP"}'
+    '''
+    source = json.loads(source)
+    transform_type = source.get("transform")
+
+    prepare_run()
+    plugin = await Registry.get_plugin(source.get("data").get("label"))
+    
+    print("RUN TRANSFORM", plugin, transform_type)
+    if not isinstance(plugin, NoneType):
+        transform_result = await plugin().run_transform(
+            transform_type=transform_type,
+            entity=source,
+            use=Use(get_driver=get_driver)
+        )
+        print('RESULT', transform_result)
+        return transform_result
+    return []
+
+
 commands = {
     "start": start,
     # "plugin create": create_plugin_wizard,
-    "init": init_entities
+    "init": init_entities,
+    "run": run_transform
+    
 }
 
 def main():
     parser = ArgumentParser()
     parser.add_argument('command', type=str, nargs="*", help="[CATEGORY (Optional)] [ACTION]")
+    parser.add_argument('-t', '--transform', type=str, nargs="*", help="[CATEGORY (Optional)] [ACTION]")
     
     args = parser.parse_args()
-    command = commands.get(' '.join(args.command))
-
+    command_fn_key = ' '.join(args.command)
+    command = commands.get(command_fn_key)
     if command:
-        command()
+        if "run" in command_fn_key:
+            asyncio.run(command(source=args.transform[0]))
+        else:
+            command()
+
     else:
         parser.error("Command not recognized")
 
