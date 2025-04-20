@@ -129,14 +129,13 @@ async def run_transform(source: str):
     prepare_run()
     plugin = await Registry.get_plugin(source.get("data").get("label"))
     
-    print("RUN TRANSFORM", plugin, transform_type)
     if not isinstance(plugin, NoneType):
         transform_result = await plugin().run_transform(
             transform_type=transform_type,
             entity=source,
             use=Use(get_driver=get_driver)
         )
-        print('RESULT', transform_result)
+        print(transform_result)
         return transform_result
     return []
 
