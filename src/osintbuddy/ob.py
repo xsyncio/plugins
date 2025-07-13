@@ -127,7 +127,7 @@ def prepare_run(plugins_path: str = None):
 async def run_transform(plugins_path: str, source: str):
     '''
     E.g.
-    ob run -t '{"id":"1125899906842654","data":{"label":"Website","color":"#1D1DB8","icon":"world-www","elements":[{"value":"github.com","icon":"world-www","label":"Domain","type":"text"}]},"position":{"x":5275.072364647034,"y":3488.8488109543805},"transform":"To IP"}'
+    ob run -t '{serde_json::Value<entity-sent-by-ws-user>}'
     '''
     source = json.loads(source)
     transform_type = source.get("transform")
@@ -179,6 +179,21 @@ def list_entities(plugins_path: str = None):
         last_edit=datetime.utcfromtimestamp(os.path.getmtime(sys.modules[plugin.__module__].__file__ )).strftime('%Y-%m-%d %H:%M:%S'),
     ) for plugin in Registry.plugins])
 
+
+def get_blueprints(label: str = None, plugins_path: str = None):
+    prepare_run(plugins_path)
+    if label is None:
+        plugins = [Registry.get_plug(to_snake_case(label)) 
+                   for label in Registry.labels]
+        blueprints = [p.create() for p in plugins]
+        printjson(blueprints)
+        return blueprints
+    plugin = Registry.get_plug(label)
+    blueprint = plugin.create() if plugin else []
+    printjson(blueprint)
+    return blueprint
+
+
 commands = {
     "start": start,
     # "plugin create": create_plugin_wizard,
@@ -186,7 +201,8 @@ commands = {
     "run": run_transform,
     "ls": list_transforms,
     "ls plugins": list_plugins,
-    "ls entities": list_entities
+    "ls entities": list_entities,
+    "blueprints": get_blueprints
 }
 
 def main():
@@ -201,13 +217,15 @@ def main():
     command = commands.get(cmd_fn_key)
     if command:
         if "run" in cmd_fn_key:
-            asyncio.run(command(plugins_path=args.plugins[0], source=args.transform[0]))
+            asyncio.run(command(plugins_path=args.plugins if args.plugins is None else args.plugins[0], source=args.transform[0]))
         elif "ls plugins" in cmd_fn_key:
              command(plugins_path=args.plugins if args.plugins is None else args.plugins[0])
         elif "ls entities" in cmd_fn_key:
             command(plugins_path=args.plugins if args.plugins is None else args.plugins[0])
         elif "ls" in cmd_fn_key:
-            asyncio.run(command(label=args.label[0], plugins_path=args.plugins if args.plugins is None else args.plugins[0]))
+            asyncio.run(command(label=args.label if args.label is None else args.label[0], plugins_path=args.plugins if args.plugins is None else args.plugins[0]))
+        elif "blueprints" in cmd_fn_key:
+            command(plugins_path=args.plugins if args.plugins is None else args.plugins[0], label=args.label if args.label is None else args.label[0])
         else:
             command()
 
