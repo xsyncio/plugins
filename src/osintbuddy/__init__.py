@@ -7,6 +7,8 @@ from osintbuddy.plugins import (
     OBRegistry as Registry,
     OBPlugin as Plugin,
     OBUse as Use,
+    OBVersion,
+    OBVersionManager,
     transform,
     load_plugin,
     load_plugins,

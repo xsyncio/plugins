@@ -8,3 +8,6 @@ from .generic import (
   to_snake_case,
   dkeys_to_snake_case
 )
+from .deps import (
+    get_driver
+)

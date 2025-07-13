@@ -1,7 +1,8 @@
 import os, importlib, inspect, sys, glob
 import importlib.util
-from typing import List, Any, Callable
+from typing import List, Any, Callable, Optional, Dict
 from collections import defaultdict
+from packaging import version
 from pydantic import BaseModel, ConfigDict
 from osintbuddy.elements.base import BaseElement
 from osintbuddy.errors import OBPluginError
@@ -12,6 +13,142 @@ OBNodeConfig = ConfigDict(extra="allow", frozen=False, populate_by_name=True, ar
 
 class OBNode(BaseModel):
     model_config = OBNodeConfig
+
+
+class OBVersion:
+    """Version handling for OSINTBuddy plugins."""
+    
+    def __init__(self, version_string: str):
+        self.version_string = version_string
+        self._parsed_version = version.parse(version_string)
+    
+    def __str__(self) -> str:
+        return self.version_string
+    
+    def __repr__(self) -> str:
+        return f"OBVersion('{self.version_string}')"
+    
+    def __eq__(self, other) -> bool:
+        if isinstance(other, str):
+            return self._parsed_version == version.parse(other)
+        elif isinstance(other, OBVersion):
+            return self._parsed_version == other._parsed_version
+        return False
+    
+    def __lt__(self, other) -> bool:
+        if isinstance(other, str):
+            return self._parsed_version < version.parse(other)
+        elif isinstance(other, OBVersion):
+            return self._parsed_version < other._parsed_version
+        return NotImplemented
+    
+    def __le__(self, other) -> bool:
+        return self == other or self < other
+    
+    def __gt__(self, other) -> bool:
+        if isinstance(other, str):
+            return self._parsed_version > version.parse(other)
+        elif isinstance(other, OBVersion):
+            return self._parsed_version > other._parsed_version
+        return NotImplemented
+    
+    def __ge__(self, other) -> bool:
+        return self == other or self > other
+    
+    def is_compatible_with(self, min_version: str, max_version: Optional[str] = None) -> bool:
+        """Check if this version is compatible with the given version constraints."""
+        min_ver = version.parse(min_version)
+        if self._parsed_version < min_ver:
+            return False
+        
+        if max_version is not None:
+            max_ver = version.parse(max_version)
+            if self._parsed_version > max_ver:
+                return False
+        
+        return True
+    
+    @property
+    def major(self) -> int:
+        return self._parsed_version.major
+    
+    @property
+    def minor(self) -> int:
+        return self._parsed_version.minor
+    
+    @property
+    def micro(self) -> int:
+        return self._parsed_version.micro
+    
+    @property
+    def is_prerelease(self) -> bool:
+        return self._parsed_version.is_prerelease
+    
+    @property
+    def is_dev(self) -> bool:
+        return self._parsed_version.is_devrelease
+
+
+class OBVersionManager:
+    """Manages version compatibility for OSINTBuddy plugins."""
+    
+    # Current framework version - should be updated when breaking changes are made
+    FRAMEWORK_VERSION = "0.1.0"
+    
+    @classmethod
+    def get_framework_version(cls) -> OBVersion:
+        """Get the current framework version."""
+        return OBVersion(cls.FRAMEWORK_VERSION)
+    
+    @classmethod
+    def validate_plugin_version(cls, plugin_version: str, min_framework_version: str = "0.1.0", 
+                              max_framework_version: Optional[str] = None) -> bool:
+        """Validate that a plugin version is compatible with the framework."""
+        try:
+            plugin_ver = OBVersion(plugin_version)
+            framework_ver = cls.get_framework_version()
+            
+            # Check if plugin version is compatible with framework version constraints
+            return framework_ver.is_compatible_with(min_framework_version, max_framework_version)
+        except Exception as e:
+            raise OBPluginError(f"Invalid plugin version format: {plugin_version}. Error: {e}")
+    
+    @classmethod
+    def check_compatibility(cls, plugin_version: str, required_framework_version: str) -> bool:
+        """Check if plugin version is compatible with required framework version."""
+        try:
+            plugin_ver = OBVersion(plugin_version)
+            required_ver = OBVersion(required_framework_version)
+            
+            # For now, we use simple major.minor compatibility
+            # Plugins are compatible if they have the same major version
+            # and plugin minor version >= required minor version
+            return (plugin_ver.major == required_ver.major and 
+                   plugin_ver.minor >= required_ver.minor)
+        except Exception as e:
+            raise OBPluginError(f"Version compatibility check failed: {e}")
+    
+    @classmethod
+    def get_version_info(cls, plugin_version: str) -> Dict[str, Any]:
+        """Get detailed version information for a plugin."""
+        try:
+            plugin_ver = OBVersion(plugin_version)
+            framework_ver = cls.get_framework_version()
+            
+            return {
+                "plugin_version": str(plugin_ver),
+                "framework_version": str(framework_ver),
+                "is_compatible": cls.check_compatibility(plugin_version, cls.FRAMEWORK_VERSION),
+                "version_details": {
+                    "major": plugin_ver.major,
+                    "minor": plugin_ver.minor,
+                    "micro": plugin_ver.micro,
+                    "is_prerelease": plugin_ver.is_prerelease,
+                    "is_dev": plugin_ver.is_dev
+                }
+            }
+        except Exception as e:
+            raise OBPluginError(f"Failed to get version info: {e}")
 
 
 def plugin_results_middleman(f):
@@ -30,12 +167,14 @@ def plugin_results_middleman(f):
 
 class OBUse(BaseModel):
     get_driver: Callable[[], None]
+    settings: dict
 
 
 class OBRegistry(type):
     plugins = []
     labels = []
     ui_labels = []
+    plugin_versions = {}  # Track plugin versions
 
     def __init__(cls, name, bases, attrs):
         """
@@ -44,6 +183,19 @@ class OBRegistry(type):
         """
         if name != 'OBPlugin' and name != 'Plugin' and issubclass(cls, OBPlugin):
             label = cls.label.strip()
+            
+            # Validate plugin version if provided
+            plugin_version = getattr(cls, 'version', '0.1.0')
+            if not cls._validate_plugin_version(plugin_version):
+                raise OBPluginError(f"Plugin '{label}' has invalid or incompatible version: {plugin_version}")
+            
+            # Store version information
+            OBRegistry.plugin_versions[label] = {
+                'version': plugin_version,
+                'version_info': OBVersionManager.get_version_info(plugin_version),
+                'class': cls
+            }
+            
             if cls.is_available is True:
                 if isinstance(cls.author, list):
                     cls.author = ', '.join(cls.author)
@@ -51,37 +203,113 @@ class OBRegistry(type):
                     'label': label,
                     'description': cls.description if cls.description != None else "Description not available.",
                     'author': cls.author if cls.author != None else "Author not provided.",
+                    'version': plugin_version,
+                    'version_info': OBVersionManager.get_version_info(plugin_version)
                 })
             OBRegistry.labels.append(label)
             OBRegistry.plugins.append(cls)
+    
+    @classmethod
+    def _validate_plugin_version(cls, plugin_version: str) -> bool:
+        """Validate plugin version format and compatibility."""
+        try:
+            return OBVersionManager.validate_plugin_version(plugin_version)
+        except Exception:
+            return False
 
     @classmethod
-    async def get_plugin(cls, plugin_label: str):
+    async def get_plugin(cls, plugin_label: str, version_constraint: Optional[str] = None):
         """
         Returns the corresponding plugin class for a given plugin_label or
         'None' if not found.
 
         :param plugin_label: The label of the plugin to be returned.
+        :param version_constraint: Optional version constraint (e.g., '>=0.1.0')
         :return: The plugin class or None if not found.
         """
         for idx, label in enumerate(cls.labels):
             if label == plugin_label or to_snake_case(label) == to_snake_case(plugin_label):
-                return cls.plugins[idx]
+                plugin_class = cls.plugins[idx]
+                
+                # Check version constraint if provided
+                if version_constraint is not None:
+                    plugin_version = getattr(plugin_class, 'version', '0.1.0')
+                    if not cls._check_version_constraint(plugin_version, version_constraint):
+                        continue
+                
+                return plugin_class
         return None
 
     @classmethod
-    def get_plug(cls, plugin_label: str):
+    def get_plug(cls, plugin_label: str, version_constraint: Optional[str] = None):
         """
         Returns the corresponding plugin class for a given plugin_label or
         'None' if not found.
 
         :param plugin_label: The label of the plugin to be returned.
+        :param version_constraint: Optional version constraint (e.g., '>=0.1.0')
         :return: The plugin class or None if not found.
         """
         for idx, label in enumerate(cls.labels):
             if to_snake_case(label) == to_snake_case(plugin_label):
-                return cls.plugins[idx]
+                plugin_class = cls.plugins[idx]
+                
+                # Check version constraint if provided
+                if version_constraint is not None:
+                    plugin_version = getattr(plugin_class, 'version', '0.1.0')
+                    if not cls._check_version_constraint(plugin_version, version_constraint):
+                        continue
+                
+                return plugin_class
         return None
+    
+    @classmethod
+    def _check_version_constraint(cls, plugin_version: str, constraint: str) -> bool:
+        """Check if plugin version satisfies the given constraint."""
+        try:
+            plugin_ver = OBVersion(plugin_version)
+            
+            # Simple constraint parsing - can be extended for more complex constraints
+            if constraint.startswith('>='):
+                min_version = constraint[2:].strip()
+                return plugin_ver >= min_version
+            elif constraint.startswith('>'):
+                min_version = constraint[1:].strip()
+                return plugin_ver > min_version
+            elif constraint.startswith('<='):
+                max_version = constraint[2:].strip()
+                return plugin_ver <= max_version
+            elif constraint.startswith('<'):
+                max_version = constraint[1:].strip()
+                return plugin_ver < max_version
+            elif constraint.startswith('=='):
+                exact_version = constraint[2:].strip()
+                return plugin_ver == exact_version
+            else:
+                # Default to exact match
+                return plugin_ver == constraint
+        except Exception:
+            return False
+    
+    @classmethod
+    def get_plugin_version_info(cls, plugin_label: str) -> Optional[Dict[str, Any]]:
+        """Get version information for a specific plugin."""
+        return cls.plugin_versions.get(plugin_label)
+    
+    @classmethod
+    def get_all_plugin_versions(cls) -> Dict[str, Dict[str, Any]]:
+        """Get version information for all registered plugins."""
+        return cls.plugin_versions.copy()
+    
+    @classmethod
+    def get_plugins_by_version(cls, version_constraint: str) -> List[type]:
+        """Get all plugins that satisfy the given version constraint."""
+        compatible_plugins = []
+        for plugin_class in cls.plugins:
+            plugin_version = getattr(plugin_class, 'version', '0.1.0')
+            if cls._check_version_constraint(plugin_version, version_constraint):
+                compatible_plugins.append(plugin_class)
+        return compatible_plugins
 
     def __getitem__(self, i: str):
         return self.get_plug[i]
@@ -106,13 +334,13 @@ def load_plugin(
     return OBRegistry.plugins
 
 
-def load_plugins():
+def load_plugins(plugins_path: str = "plugins"):
     """
     Loads plugins from the filesystem ./plugins/*.py directory
 
     :return: list of plugins sourced from the filesystem
     """
-    entities = glob.glob('plugins/*.py')
+    entities = glob.glob(f'{plugins_path}/*.py')
     for entity in entities:
         mod_name = entity.replace('.py', '').replace('plugins/', '')
         spec = importlib.util.spec_from_file_location(mod_name, f"{entity}")
@@ -160,8 +388,14 @@ class OBPlugin(object, metaclass=OBRegistry):
 
     author = ''
     description = ''
+    version: str = '0.1.0'  # Default version for plugins
+    min_framework_version: str = '0.1.0'  # Minimum required framework version
+    max_framework_version: Optional[str] = None  # Maximum supported framework version
 
     def __init__(self):
+        # Validate plugin version compatibility on initialization
+        self._validate_version_compatibility()
+        
         transforms = self.__class__.__dict__.values()
         self.transforms = {
             to_snake_case(func.label): func for func in transforms if hasattr(func, 'label')
@@ -173,6 +407,34 @@ class OBPlugin(object, metaclass=OBRegistry):
             } for func in transforms
             if hasattr(func, 'label')
         ]
+    
+    def _validate_version_compatibility(self):
+        """Validate that this plugin is compatible with the current framework."""
+        try:
+            framework_version = OBVersionManager.get_framework_version()
+            plugin_version = OBVersion(self.version)
+            
+            # Check minimum framework version requirement
+            if not framework_version.is_compatible_with(self.min_framework_version, self.max_framework_version):
+                raise OBPluginError(
+                    f"Plugin '{self.label}' (v{self.version}) requires framework version "
+                    f">={self.min_framework_version}" + 
+                    (f" and <={self.max_framework_version}" if self.max_framework_version else "") +
+                    f", but current framework version is {framework_version}"
+                )
+        except Exception as e:
+            raise OBPluginError(f"Version compatibility validation failed for plugin '{self.label}': {e}")
+    
+    def get_version_info(self) -> Dict[str, Any]:
+        """Get version information for this plugin instance."""
+        return {
+            'plugin_version': self.version,
+            'plugin_label': self.label,
+            'min_framework_version': self.min_framework_version,
+            'max_framework_version': self.max_framework_version,
+            'framework_version': str(OBVersionManager.get_framework_version()),
+            'is_compatible': OBVersionManager.check_compatibility(self.version, OBVersionManager.FRAMEWORK_VERSION)
+        }
 
     def __call__(self):
         return self.create()
@@ -193,7 +455,7 @@ class OBPlugin(object, metaclass=OBRegistry):
     def create(cls, **kwargs):
         """
         Generate and return a dictionary representing the plugins ui entity.
-        Includes label, name, color, icon, and a list of all elements
+        Includes label, name, color, icon, version information, and a list of all elements
         for the entity/plugin.
         """
         ui_entity = defaultdict(None)
@@ -201,6 +463,8 @@ class OBPlugin(object, metaclass=OBRegistry):
             'label': cls.label,
             'color': cls.color if cls.color else '#145070',
             'icon': cls.icon,
+            'version': cls.version,
+            'version_info': OBVersionManager.get_version_info(cls.version),
             'elements': []
         }
         if cls.entity:
